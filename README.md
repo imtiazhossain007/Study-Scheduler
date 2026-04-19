@@ -90,4 +90,4 @@ src/
 
 ---
 
-<div align="center">Made with ❤️ by Pranjal Verma &nbsp;•&nbsp; ⭐ Star if useful!</div>
+

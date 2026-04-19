@@ -2,32 +2,52 @@ import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Calendar, ChevronLeft, ChevronRight, Copy, Download, RefreshCw,
-  Sparkles, Check, BookOpen, Lightbulb, Clock, X, Edit3, ArrowLeft
+  Sparkles, Check, BookOpen, Lightbulb, Clock, X, Edit3, ArrowLeft, Camera, ShieldCheck, History, Trash2
 } from 'lucide-react';
 import { format, parseISO, startOfWeek, addDays, isSameDay, isToday, isBefore, startOfDay } from 'date-fns';
 import toast from 'react-hot-toast';
 import confetti from 'canvas-confetti';
 import { getSubjectColor } from '../utils/colors';
+import { useAuth } from '../hooks/useAuth';
 
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: { staggerChildren: 0.05 },
+    transition: { staggerChildren: 0.08 },
   },
 };
 
 const cardVariants = {
-  hidden: { opacity: 0, y: 20, scale: 0.95 },
+  hidden: { opacity: 0, y: 30, scale: 0.95 },
   visible: {
     opacity: 1,
     y: 0,
     scale: 1,
+    transition: { type: 'spring', stiffness: 260, damping: 20 },
+  },
+};
+
+const entryContainerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.1, delayChildren: 0.1 },
+  },
+};
+
+const entryVariants = {
+  hidden: { opacity: 0, x: -20 },
+  visible: {
+    opacity: 1,
+    x: 0,
     transition: { type: 'spring', stiffness: 300, damping: 24 },
   },
 };
 
 export default function ScheduleDashboard({ schedule, subjects, onRegenerate, onBack }) {
+  const { currentUser, restoreHistoryItem, deleteHistoryItem } = useAuth();
+  const [showHistory, setShowHistory] = useState(false);
   const [selectedDay, setSelectedDay] = useState(null);
   const [editMode, setEditMode] = useState(null);
   const [editSubject, setEditSubject] = useState('');
@@ -156,6 +176,9 @@ export default function ScheduleDashboard({ schedule, subjects, onRegenerate, on
     (sum, entries) => sum + entries.reduce((s, e) => s + (e.hours || 0), 0), 0
   );
 
+  const subjectsWithSyllabusCount = subjects.filter(s => s.syllabusText || s.syllabusImage).length;
+  const totalSubjects = subjects.length;
+
   return (
     <motion.div
       className="min-h-screen py-10 px-4 sm:px-8 md:px-12 lg:px-24 w-full max-w-[1600px] mx-auto flex flex-col"
@@ -170,7 +193,7 @@ export default function ScheduleDashboard({ schedule, subjects, onRegenerate, on
         <div className="flex items-center gap-3">
           <motion.button
             id="back-to-form-btn"
-            className="btn-secondary flex items-center gap-2 text-sm no-print"
+            className="bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/40 text-white/80 hover:text-white px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-2 text-sm no-print"
             onClick={onBack}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.97 }}
@@ -179,20 +202,32 @@ export default function ScheduleDashboard({ schedule, subjects, onRegenerate, on
             Edit
           </motion.button>
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold gradient-text flex items-center gap-2">
-              <Calendar size={28} />
+            <h1 className="text-2xl sm:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-300 via-blue-300 to-pink-300 flex items-center gap-2">
+              <Calendar size={28} className="text-violet-400" />
               Your Study Schedule
             </h1>
-            <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-              AI-generated personalized plan
+            <p className="text-sm mt-1 text-white/50">
+              {subjectsWithSyllabusCount > 0 
+                ? `${subjectsWithSyllabusCount} of ${totalSubjects} subjects had syllabus attached — schedule is based on your actual content`
+                : 'AI-generated personalized plan'}
             </p>
           </div>
         </div>
 
         <div className="flex gap-2 no-print flex-wrap">
           <motion.button
+            id="history-btn"
+            className="bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/40 text-white/80 hover:text-white px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-2 text-sm"
+            onClick={() => setShowHistory(true)}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.97 }}
+          >
+            <History size={16} />
+            History
+          </motion.button>
+          <motion.button
             id="copy-schedule-btn"
-            className="btn-secondary flex items-center gap-2 text-sm"
+            className="bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/40 text-white/80 hover:text-white px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-2 text-sm"
             onClick={copySchedule}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.97 }}
@@ -202,7 +237,7 @@ export default function ScheduleDashboard({ schedule, subjects, onRegenerate, on
           </motion.button>
           <motion.button
             id="download-pdf-btn"
-            className="btn-secondary flex items-center gap-2 text-sm"
+            className="bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/40 text-white/80 hover:text-white px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-2 text-sm"
             onClick={downloadPDF}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.97 }}
@@ -212,7 +247,7 @@ export default function ScheduleDashboard({ schedule, subjects, onRegenerate, on
           </motion.button>
           <motion.button
             id="regenerate-btn"
-            className="btn-primary flex items-center gap-2 text-sm"
+            className="bg-gradient-to-r from-violet-600 to-blue-500 hover:from-violet-500 hover:to-blue-400 text-white font-semibold px-4 py-2 rounded-lg shadow-[0_0_20px_rgba(139,92,246,0.4)] hover:shadow-[0_0_35px_rgba(139,92,246,0.65)] transition-all duration-200 border border-white/20 flex items-center gap-2 text-sm"
             onClick={onRegenerate}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.97 }}
@@ -225,47 +260,46 @@ export default function ScheduleDashboard({ schedule, subjects, onRegenerate, on
 
       {/* Stats Bar */}
       <motion.div
-        className="grid grid-cols-1 sm:grid-cols-3"
+        className="grid grid-cols-1 sm:grid-cols-2"
         style={{ gap: '1.5rem' }}
         variants={containerVariants}
         initial="hidden"
         animate="visible"
       >
         {[
-          { label: 'Total Days', value: totalDays, icon: Calendar, color: 'text-indigo-400' },
-          { label: 'Completed', value: `${completedCount}/${totalDays}`, icon: Check, color: 'text-green-400' },
-          { label: 'Total Hours', value: totalHours, icon: Clock, color: 'text-purple-400' },
+          { label: 'Total Days', value: totalDays, icon: Calendar, color: 'text-violet-400' },
+          { label: 'Completed', value: `${completedCount}/${totalDays}`, icon: Check, color: 'text-emerald-400' },
         ].map((stat, i) => (
           <motion.div
             key={stat.label}
-            className="glass-card-sm p-4 text-center"
+            className="backdrop-blur-md bg-white/[0.07] border border-white/10 rounded-2xl shadow-[0_4px_16px_rgba(0,0,0,0.2)] p-4 text-center"
             variants={cardVariants}
           >
             <stat.icon size={20} className={`mx-auto mb-2 ${stat.color}`} />
-            <p className="text-2xl font-bold gradient-text">{stat.value}</p>
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{stat.label}</p>
+            <p className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">{stat.value}</p>
+            <p className="text-xs text-white/50">{stat.label}</p>
           </motion.div>
         ))}
       </motion.div>
 
       {/* Week Navigation */}
-      <div className="flex items-center justify-between no-print bg-white/5 p-4 rounded-2xl border border-white/10 backdrop-blur-md">
+      <div className="flex items-center justify-between no-print backdrop-blur-xl bg-white/10 border border-white/20 rounded-2xl p-4 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
         <motion.button
           id="prev-week-btn"
           onClick={prevWeek}
-          className="btn-secondary p-2"
+          className="bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/40 text-white/80 hover:text-white p-2 rounded-lg transition-all duration-200"
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
         >
           <ChevronLeft size={20} />
         </motion.button>
-        <h2 className="text-lg font-semibold" style={{ color: 'var(--text-secondary)' }}>
+        <h2 className="text-lg font-semibold text-white/90">
           {format(weekDays[0], 'MMM dd')} — {format(weekDays[6], 'MMM dd, yyyy')}
         </h2>
         <motion.button
           id="next-week-btn"
           onClick={nextWeek}
-          className="btn-secondary p-2"
+          className="bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/40 text-white/80 hover:text-white p-2 rounded-lg transition-all duration-200"
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
         >
@@ -275,7 +309,7 @@ export default function ScheduleDashboard({ schedule, subjects, onRegenerate, on
 
       {/* Calendar Grid */}
       <motion.div
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 no-print"
         style={{ gap: '1rem' }}
         variants={containerVariants}
         initial="hidden"
@@ -294,10 +328,9 @@ export default function ScheduleDashboard({ schedule, subjects, onRegenerate, on
             <motion.div
               key={dateStr}
               variants={cardVariants}
-              className={`glass-card p-3 cursor-pointer transition-all min-h-[140px] relative ${
-                isCurrentDay ? 'ring-2 ring-indigo-500/50' : ''
+              className={`backdrop-blur-md bg-white/[0.07] border rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.2)] p-3 cursor-pointer transition-all min-h-[140px] relative ${
+                isCurrentDay ? 'border-violet-500/50 ring-1 ring-violet-500/50 bg-white/[0.12]' : 'border-white/10'
               } ${isComplete ? 'opacity-70' : ''}`}
-              style={{ padding: '12px' }}
               onClick={() => setSelectedDay(dateStr)}
               whileHover={{ scale: 1.03, y: -4 }}
               whileTap={{ scale: 0.98 }}
@@ -305,10 +338,10 @@ export default function ScheduleDashboard({ schedule, subjects, onRegenerate, on
               {/* Day header */}
               <div className="flex items-center justify-between mb-2">
                 <div>
-                  <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
+                  <p className="text-xs font-medium text-white/40">
                     {format(day, 'EEE')}
                   </p>
-                  <p className={`text-lg font-bold ${isCurrentDay ? 'text-indigo-400' : ''}`}>
+                  <p className={`text-lg font-bold ${isCurrentDay ? 'text-violet-400' : 'text-white/80'}`}>
                     {format(day, 'd')}
                   </p>
                 </div>
@@ -366,9 +399,14 @@ export default function ScheduleDashboard({ schedule, subjects, onRegenerate, on
         initial="hidden"
         animate="visible"
       >
-        <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-          <BookOpen size={22} className="text-indigo-400" />
-          Day-by-Day Breakdown
+        <h2 className="text-xl font-bold mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <BookOpen size={22} className="text-violet-400" />
+            Day-by-Day Breakdown
+          </div>
+          <span className="text-sm font-medium px-3 py-1.5 rounded-full bg-white/10 border border-white/20 text-white/70 flex items-center gap-2 shadow-sm self-start sm:self-auto">
+            <Clock size={16} className="text-violet-400" /> {totalHours} Total Hours
+          </span>
         </h2>
 
         {Object.entries(scheduleMap)
@@ -381,26 +419,29 @@ export default function ScheduleDashboard({ schedule, subjects, onRegenerate, on
             return (
               <motion.div
                 key={dateStr}
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, margin: "-50px" }}
                 variants={cardVariants}
-                className={`glass-card p-5 ${isComplete ? 'opacity-60' : ''} ${
-                  isCurrentDay ? 'ring-2 ring-indigo-500/40' : ''
+                className={`backdrop-blur-xl bg-white/10 border border-white/20 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.3)] ${isComplete ? 'opacity-60' : ''} ${
+                  isCurrentDay ? 'ring-2 ring-violet-500/50 bg-white/[0.15]' : ''
                 }`}
               >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="text-center min-w-[50px]">
-                      <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-4">
+                    <div className="text-center min-w-[50px] bg-white/5 rounded-xl py-2 px-3 border border-white/10">
+                      <p className="text-xs font-medium text-white/50">
                         {format(dayDate, 'EEE')}
                       </p>
-                      <p className="text-xl font-bold gradient-text">
+                      <p className="text-2xl font-bold text-white">
                         {format(dayDate, 'dd')}
                       </p>
-                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                      <p className="text-xs text-white/50">
                         {format(dayDate, 'MMM')}
                       </p>
                     </div>
                     {isCurrentDay && (
-                      <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                      <span className="px-3 py-1 text-xs font-semibold rounded-full bg-violet-500/30 text-white border border-violet-400/50 shadow-[0_0_15px_rgba(139,92,246,0.4)]">
                         Today
                       </span>
                     )}
@@ -408,12 +449,11 @@ export default function ScheduleDashboard({ schedule, subjects, onRegenerate, on
 
                   <motion.button
                     id={`complete-day-${dateStr}`}
-                    className={`no-print px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 transition-all ${
+                    className={`no-print transition-all duration-200 text-sm font-medium flex items-center gap-2 px-4 py-2 rounded-xl ${
                       isComplete
-                        ? 'bg-green-500/20 text-green-300 border border-green-500/30'
-                        : 'glass-card-sm'
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.3)]'
+                        : 'bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/40 text-white/80 hover:text-white'
                     }`}
-                    style={!isComplete ? { color: 'var(--text-secondary)' } : {}}
                     onClick={() => toggleComplete(dateStr)}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
@@ -423,7 +463,13 @@ export default function ScheduleDashboard({ schedule, subjects, onRegenerate, on
                   </motion.button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <motion.div 
+                  className="grid grid-cols-1 sm:grid-cols-2 gap-3"
+                  variants={entryContainerVariants}
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={{ once: true }}
+                >
                   {entries.map((entry, j) => {
                     const color = getColor(entry.subject);
                     const isEditing = editMode?.dateStr === dateStr && editMode?.entryIndex === j;
@@ -431,12 +477,13 @@ export default function ScheduleDashboard({ schedule, subjects, onRegenerate, on
                     return (
                       <motion.div
                         key={j}
-                        className="rounded-xl p-4"
+                        variants={entryVariants}
+                        className="rounded-2xl p-5 transition-all duration-300 backdrop-blur-md"
                         style={{
-                          background: color.bg,
+                          background: `linear-gradient(135deg, ${color.bg}, rgba(255,255,255,0.02))`,
                           border: `1px solid ${color.border}`,
                         }}
-                        whileHover={{ scale: 1.02 }}
+                        whileHover={{ scale: 1.02, boxShadow: `0 8px 32px ${color.bg.replace('0.18', '0.4')}` }}
                       >
                         <div className="flex items-center justify-between mb-2">
                           {isEditing ? (
@@ -465,10 +512,22 @@ export default function ScheduleDashboard({ schedule, subjects, onRegenerate, on
                             </div>
                           ) : (
                             <>
-                              <h4 className="font-semibold" style={{ color: color.text }}>
+                              <h4 className="font-semibold flex items-center gap-1.5" style={{ color: color.text }}>
                                 {entry.subject}
+                                {subjects.find(s => s.name === entry.subject)?.syllabusImage && (
+                                  <Camera size={12} className="opacity-70" title="Generated from syllabus image" />
+                                )}
                               </h4>
                               <div className="flex items-center gap-2 no-print">
+                                {subjects.find(s => s.name === entry.subject)?.syllabusText || subjects.find(s => s.name === entry.subject)?.syllabusImage ? (
+                                  <span className="hidden sm:inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 shadow-[0_0_10px_rgba(16,185,129,0.2)]">
+                                    From your syllabus
+                                  </span>
+                                ) : (
+                                  <span className="hidden sm:inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/20 text-blue-300 border border-blue-400/30 shadow-[0_0_10px_rgba(59,130,246,0.2)]">
+                                    AI generated
+                                  </span>
+                                )}
                                 <motion.button
                                   className="p-1 rounded hover:bg-white/10 transition"
                                   onClick={(e) => {
@@ -492,39 +551,124 @@ export default function ScheduleDashboard({ schedule, subjects, onRegenerate, on
                         </div>
 
                         {entry.topics && entry.topics.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 mb-2">
+                          <motion.div 
+                            className="flex flex-wrap gap-1.5 mb-2 mt-3"
+                            initial={{ opacity: 0 }}
+                            whileInView={{ opacity: 1 }}
+                            transition={{ delay: 0.1 }}
+                            viewport={{ once: true }}
+                          >
                             {entry.topics.map((topic, k) => (
-                              <span
+                              <motion.span
                                 key={k}
-                                className="text-xs px-2 py-0.5 rounded-full"
-                                style={{
-                                  background: 'rgba(255,255,255,0.08)',
-                                  color: 'var(--text-secondary)',
-                                }}
+                                initial={{ opacity: 0, scale: 0.8 }}
+                                whileInView={{ opacity: 1, scale: 1 }}
+                                transition={{ delay: 0.1 + (k * 0.05) }}
+                                viewport={{ once: true }}
+                                className="text-xs font-medium px-2.5 py-1 rounded-full border border-white/10 bg-white/5 text-white/70 shadow-sm"
                               >
                                 {topic}
-                              </span>
+                              </motion.span>
                             ))}
-                          </div>
+                          </motion.div>
                         )}
 
                         {entry.tip && (
                           <p
-                            className="text-xs flex items-start gap-1.5 mt-2"
-                            style={{ color: 'var(--text-muted)' }}
+                            className="text-xs flex items-start gap-2 mt-4 pt-3 border-t border-white/10 text-white/50"
                           >
-                            <Lightbulb size={12} className="shrink-0 mt-0.5 text-yellow-400" />
+                            <Lightbulb size={14} className="shrink-0 mt-0.5 text-yellow-400/80" />
                             {entry.tip}
                           </p>
                         )}
                       </motion.div>
                     );
                   })}
-                </div>
+                </motion.div>
               </motion.div>
             );
           })}
       </motion.div>
+
+      {/* History Slide-in Panel */}
+      <AnimatePresence>
+        {showHistory && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowHistory(false)}
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 no-print"
+            />
+            <motion.div
+              initial={{ x: 320 }}
+              animate={{ x: 0 }}
+              exit={{ x: 320 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed right-0 top-0 h-full w-80 z-50 backdrop-blur-xl bg-white/10 border-l border-white/20 shadow-[-8px_0_32px_rgba(0,0,0,0.3)] flex flex-col no-print"
+            >
+              <div className="p-5 border-b border-white/10 flex items-center justify-between">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <History size={20} className="text-violet-400" />
+                  My Schedules
+                </h3>
+                <button
+                  onClick={() => setShowHistory(false)}
+                  className="text-white/50 hover:text-white transition-colors p-1"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-4 flex-1 overflow-y-auto space-y-3 custom-scrollbar">
+                {currentUser?.data?.scheduleHistory?.length > 0 ? (
+                  [...currentUser.data.scheduleHistory].reverse().map((hist) => (
+                    <div
+                      key={hist.id}
+                      className="backdrop-blur-md bg-white/5 border border-white/10 hover:border-violet-500/50 rounded-xl p-4 transition-all group cursor-pointer"
+                      onClick={() => {
+                        const restored = restoreHistoryItem(hist.id);
+                        if (restored) {
+                          setShowHistory(false);
+                          toast.success('Restored previous schedule');
+                        }
+                      }}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <h4 className="font-semibold text-white group-hover:text-violet-300 transition-colors">
+                          {hist.label}
+                        </h4>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteHistoryItem(hist.id);
+                            toast.success('Removed from history');
+                          }}
+                          className="text-white/30 hover:text-red-400 transition-colors p-1 opacity-0 group-hover:opacity-100"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                      <p className="text-xs text-white/50 mb-1">
+                        Generated on {format(parseISO(hist.generatedAt), 'MMM dd, yyyy')}
+                      </p>
+                      <p className="text-xs text-white/40">
+                        {hist.subjects?.length || 0} subjects
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center mt-10">
+                    <History size={40} className="text-white/20 mx-auto mb-3" />
+                    <p className="text-white/40 text-sm">No saved schedules yet</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
